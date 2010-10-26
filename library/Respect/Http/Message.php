@@ -15,11 +15,19 @@ abstract class Message
     const TYPE_REQUEST=1;
     const TYPE_RESPONSE=2;
 
+    const FORMAT_REQUEST_LINE = "/^([A-Z]*) (.*?) HTTP\/1\.([0-9]+)\s*[\r][\n]$/";
+    const FORMAT_STATUS_LINE = "/^HTTP\/1\.([0-9]+) ([0-9]{3}) (\w+)\s*[\r][\n]$/";
+
     protected $state = 1;
     protected $version = 0;
     protected $type = null;
     protected $buffer = '';
     protected $headers = array();
+
+    public function getVersion()
+    {
+        return $this->version;
+    }
 
     public function feed($textFragment)
     {
@@ -59,7 +67,7 @@ abstract class Message
 
     public function parseHeader($line)
     {
-        return new Header;
+        $this->headers[] = Header::createFromLine($line);
     }
 
     protected function getBufferLine()
@@ -118,7 +126,7 @@ abstract class Message
     {
         //Sample: HTTP/1,1 200 Created
         return preg_match(
-            "/^HTTP\/1\.[0-9]+ [0-9]{3} (\w)+\s*[\r][\n]$/", $textFragment
+            self::FORMAT_STATUS_LINE, $textFragment
         ) ? self::TYPE_RESPONSE : self::TYPE_UNKNOWN;
     }
 
@@ -126,7 +134,7 @@ abstract class Message
     {
         //Sample: GET /fooBar HTTP/1.1
         return preg_match(
-            "/^[A-Z]* .*? HTTP\/1\.[0-9]+\s*[\r][\n]$/", $textFragment
+            self::FORMAT_REQUEST_LINE, $textFragment
         ) ? self::TYPE_REQUEST : self::TYPE_UNKNOWN;
     }
 
