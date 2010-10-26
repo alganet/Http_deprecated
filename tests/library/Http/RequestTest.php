@@ -14,8 +14,8 @@ class RequestTest extends \PHPUnit_Framework_TestCase
 
     public function testParseLine()
     {
-        $this->object->parseStartLine("GET /fooBar HTTP/1.1\r\n");
-        $this->assertEquals(1, $this->object->getVersion());
+        $this->object->parseStartLine("GET /fooBar HTTP/1.1");
+        $this->assertEquals('1.1', $this->object->getVersion());
         $this->assertEquals('/fooBar', $this->object->getUri());
         $this->assertEquals('GET', $this->object->getMethod());
     }

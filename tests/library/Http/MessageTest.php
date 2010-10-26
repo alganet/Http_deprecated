@@ -60,4 +60,14 @@ class MessageTest extends \PHPUnit_Framework_TestCase
         );
     }
 
+    public function testHeaders()
+    {
+        $build = Message::getBuilder();
+        $message = $build(
+            "HTTP/1.1 301 Moved Permanently\r\nLocation: /\r\nFoo: Bar\r\n"
+        );
+        $this->assertType('Respect\Http\Response', $message);
+        $this->assertEquals(2, count($message->getHeaders()));
+    }
+
 }

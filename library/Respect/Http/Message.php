@@ -8,21 +8,26 @@ abstract class Message
     const STATE_HEADERS=2;
     const STATE_BODY=3;
 
-    const VERSION_0=0;
-    const VERSION_1=1;
-
     const TYPE_UNKNOWN=0;
     const TYPE_REQUEST=1;
     const TYPE_RESPONSE=2;
 
-    const FORMAT_REQUEST_LINE = "/^([A-Z]*) (.*?) HTTP\/1\.([0-9]+)\s*[\r][\n]$/";
-    const FORMAT_STATUS_LINE = "/^HTTP\/1\.([0-9]+) ([0-9]{3}) (\w+)\s*[\r][\n]$/";
+    const FORMAT_REQUEST_LINE = "/^([A-Z]*) (.*?) HTTP\/([0-9]+\.[0-9]+)\s*$/";
+    const FORMAT_STATUS_LINE = "/^HTTP\/([0-9]+\.[0-9]+) ([0-9]{3}) (.+)\s*$/";
 
+    static protected $reasonersActivationHeaders = array(
+        'Transfer-Encoding' => array('ContentLength', 'TransferEncoding'),
+        'Content-Length' => array('ContentLength'),
+        'Content-Type' => array('ContentLength'),
+        'Connection' => array('ContentLength'),
+        'Host' => array('ResourceUri'),
+    );
     protected $state = 1;
-    protected $version = 0;
+    protected $version = '1.0';
     protected $type = null;
     protected $buffer = '';
     protected $headers = array();
+    protected $headersSet = array();
 
     public function getVersion()
     {
@@ -32,10 +37,25 @@ abstract class Message
     public function feed($textFragment)
     {
         $this->buffer .= $textFragment;
-        do {
-            $line = $this->getBufferLine();
-            $this->parse();
-        } while ($line);
+        while ($this->parse())
+            ;
+    }
+
+    public function hasHeader($fieldName)
+    {
+        $fieldName = Header::normalizeFieldName($fieldName);
+        return isset($this->headersSet[$fieldName]);
+    }
+
+    public function getHeader($fieldName)
+    {
+        $fieldName = Header::normalizeFieldName($fieldName);
+        $found = false;
+        foreach ($this->headers as $h) {
+            if ($fieldName == $h->getName())
+                $found = $h;
+        }
+        return $found;
     }
 
     public function parse()
@@ -44,18 +64,24 @@ abstract class Message
             case self::STATE_START_LINE:
                 $line = $this->getBufferLine();
                 if (!$line)
-                    return;
+                    return false;
                 $this->parseStartLine($line);
                 $this->state = self::STATE_HEADERS;
+                return true;
                 break;
             case self::STATE_HEADERS:
                 $line = $this->getBufferLine();
+                if (!$line)
+                    return false;
                 if ('' !== $line)
                     $this->parseHeader($line);
                 else
                     $this->state = self::STATE_BODY;
+                return true;
                 break;
             case self::STATE_BODY:
+                echo 1;
+                return false;
                 break;
         }
     }
@@ -67,12 +93,30 @@ abstract class Message
 
     public function parseHeader($line)
     {
-        $this->headers[] = Header::createFromLine($line);
+        $header = Header::createFromLine($line);
+        $this->headers[] = $header;
+        $headerName = $header->getName();
+        $this->headersPresent[$headerName] = 1;
+        if (isset(self::$reasonersActivationHeaders[$headerName]))
+            $this->reason(self::$reasonersActivationHeaders[$headerName]);
+    }
+
+    public function reason($reasonerName)
+    {
+        $reasonerClass = __NAMESPACE__ . '\\Reasoners\\' . $reasonerName;
+        $reasoner = new $reasonerClass;
+        $reasoner->applyTo($this);
+    }
+
+    public function getHeaders()
+    {
+        return $this->headers;
     }
 
     protected function getBufferLine()
     {
-        $parts = explode(chr(10) . chr(13), $this->buffer, 2);
+
+        $parts = explode("\r\n", $this->buffer, 2);
         $line = false;
         if (2 === count($parts))
             list($line, $this->buffer) = $parts;
@@ -110,9 +154,13 @@ abstract class Message
     public static function guessType($textFragment)
     {
         $textFragment = self::normalizeWhitespace($textFragment);
+        $textFragment = explode("\r\n", $textFragment, 2);
+        $textFragment = $textFragment[0];
+
         //Minimal HTTP Status-Line size is 14 chars: GET / HTTP/1.1
         if (14 > strlen($textFragment))
             return self::TYPE_UNKNOWN;
+
         $httpPosition = strpos($textFragment, 'HTTP/');
         if (false === $httpPosition)
             return self::TYPE_UNKNOWN;
