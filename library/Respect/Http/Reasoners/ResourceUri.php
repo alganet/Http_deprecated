@@ -6,9 +6,10 @@ use Respect\Http\Reasonable;
 
 class ResourceUri implements Reasonable
 {
-    public function applyTo(Message $message)
+
+    public function apply(Message $message)
     {
         
     }
-    
+
 }

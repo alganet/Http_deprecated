@@ -105,7 +105,7 @@ abstract class Message
     {
         $reasonerClass = __NAMESPACE__ . '\\Reasoners\\' . $reasonerName;
         $reasoner = new $reasonerClass;
-        $reasoner->applyTo($this);
+        $reasoner->apply($this);
     }
 
     public function getHeaders()

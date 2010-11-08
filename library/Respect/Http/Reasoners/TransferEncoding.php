@@ -7,7 +7,7 @@ use Respect\Http\Reasonable;
 class TransferEncoding implements Reasonable
 {
 
-    public function applyTo(Message $message)
+    public function apply(Message $message)
     {
         
     }

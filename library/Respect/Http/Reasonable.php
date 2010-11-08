@@ -5,5 +5,5 @@ namespace Respect\Http;
 interface Reasonable
 {
 
-    public function applyTo(Message $message);
+    public function apply(Message $message);
 }
